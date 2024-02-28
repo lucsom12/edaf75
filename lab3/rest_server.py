@@ -1,81 +1,130 @@
-from bottle import Bottle, run, request, response
+from bottle import run, request, response, get, post
 import sqlite3
 import hashlib
-
-app = Bottle()
+import lab3
 
 PORT = 7007
-db = sqlite3.connect('lab3.sqlite')
+db = sqlite3.connect('movies.sqlite')
 
-@app.route('/ping', method='GET')
+@get('/ping')
 def ping():
     return 'pong'
 
-# def get_db_connection():
-#     conn = sqlite3.connect('lab3.sqlite')
-#     conn.row_factory = sqlite3.Row
-#     return conn
+@post('/reset')
+def reset():
+    c = db.cursor()
+    try:
+        c.execute('DELETE FROM theaters')
+        c.execute('DELETE FROM users')
+        c.execute('DELETE FROM performances')
+        c.execute('DELETE FROM ticket')
+        c.execute('DELETE FROM movies')
+        db.commit()
 
-@app.route('/empty', method='DELETE')
-def empty_database():
-    cursor = db.cursor()
-    cursor.execute('DELETE FROM theaters')
-    db.commit()
-    cursor.close()
-    return {'message': 'Database emptied successfully'}
+        #Def values
+        theaters_init = [("Kino", 10), ("Regal", 16), ("Skandia", 100)]
+        c.executemany("INSERT INTO theaters (theater, capacity) VALUES (?, ?)", theaters_init)
 
-@app.route('/theaters', method='POST')
-def add_theaters():
-    theaters_data = {"Kino": 10, "Regal": 16, "Skandia": 100}
+        db.commit()
+        response.status = 201 
+        return {'message': 'Theaters added successfully'}
 
-    cursor = db.cursor()
+    except sqlite3.Error as e:
+            response.status = 500
+            return f"{str(e)}"
+
+@post('/users')
+def post_user():
+    user = request.json
+    c = db.cursor()
+    try:
+        c.execute(
+            """
+            INSERT
+            INTO   users(username, fullName, pwd)
+            VALUES (?,?,?)
+            RETURNING  username
+            """,
+            [user['username'], user['fullName'], user['pwd']]
+        )
+        found = c.fetchone()
+        if not found:
+            response.status = 400
+            return "Illegal..."
+        else:
+            db.commit()
+            response.status = 201
+            username, = found
+            return f"/users/{username}"
+    except sqlite3.IntegrityError:
+        response.status = 409
+        return "Username already in use"
     
-    cursor.execute('DELETE FROM theaters')
-    
-    for theater, capacity in theaters_data.items():
-        cursor.execute('INSERT INTO theaters (name, capacity) VALUES (?, ?)', (theater, capacity))
-    
-    db.commit()
-    cursor.close()
-    response.status = 201 
-    return {'message': 'Theaters added successfully'}
-
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-@app.route('/users', method='POST')
-def create_user():
-    user_data = request.json
-    
-    username = user_data.get('username')
-    full_name = user_data.get('fullName')
-    password = user_data.get('pwd')
-
-    if not username or not full_name or not password:
+@post('/movies')
+def post_movies():
+    movie = request.json
+    c = db.cursor()
+    try:
+        c.execute(
+            """
+            INSERT
+            INTO   movies(imdbKey, title, year)
+            VALUES (?,?,?)
+            RETURNING  imdbKey
+            """,
+            [movie['imdbKey'], movie['title'], movie['year']]
+        )
+        found = c.fetchone()
+        db.commit()
+        response.status = 201
+        imdbKey, = found
+        return f"/movies/{imdbKey}"
+    except sqlite3.IntegrityError:
         response.status = 400
-        return {'message': 'Missing required fields'}
+        return ""
     
-    hashed_password = hash_password(password)
-    
-    cursor = db.cursor()
-    
-    cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
-    existing_user = cursor.fetchone()
-    
-    if existing_user:
-        cursor.close()
+@post('/performances')
+def post_performances():
+    performance = request.json
+    c = db.cursor()
+    try:
+        c.execute(
+            """
+            INSERT
+            INTO   performances(imdbKey, theater, date, time)
+            VALUES (?,?,?,?)
+            RETURNING  screeningID
+            """,
+            [performance['imdbKey'], performance['theater'], performance['date'], performance['time']]
+        )
+        found = c.fetchone()
+        db.commit()
+        response.status = 201
+        screeningID, = found
+        return f"/performances/{screeningID}"
+    except sqlite3.IntegrityError:
         response.status = 400
-        return {'message': 'User with this username already exists'}
+        return ""
     
-    cursor.execute('INSERT INTO users (username, fullname, pwd) VALUES (?, ?, ?)',
-                   (username, full_name, hashed_password))
-    db.commit()
-    cursor.close()
-    
-    response.status = 201
-    return {'message': f'/users/{username}'}
+@get('/movies')
+def get_movies():
+    c = db.cursor()
+    return
+
+# @get('/students')
+# def get_students():
+#     c = db.cursor()
+#     c.execute(
+#         """
+#         SELECT   s_id, s_name, gpa
+#         FROM     students
+#         """
+#     )
+#     response.status = 200
+#     found = [{"id": id,
+#               "name": name,
+#               "gpa": grade} for id, name, grade in c]
+#     return {"data": found}
 
 if __name__ == '__main__':
-    # empty_database()
-    #add_theaters()
-    run(app, host='localhost', port=7007)
+    run(host='localhost', port=7007)

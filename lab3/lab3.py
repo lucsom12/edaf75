@@ -12,7 +12,6 @@ import urllib.parse
 HOST="localhost"
 PORT=7007
 
-
 USERS = [("alice", "Alice Lidell", "ecila"),
          ("bob", "Bob Hund", "bob"),
          ("carol", "Carol Christmas", "lorac")]
@@ -101,7 +100,7 @@ def check_reset():
     check("POST", resource)
     try:
         r = requests.post(resource)
-        # require(r.status_code, 205)
+        require(r.status_code, 201)
         ok("POST", resource)
     except Exception as e:
         abort_on_resource("POST", resource, f"crashes ({e})")
