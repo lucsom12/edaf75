@@ -1,0 +1,46 @@
+PRAGMA foreign_keys=OFF;
+DROP TABLE IF EXISTS theaters;
+DROP TABLE IF EXISTS movies;
+DROP TABLE IF EXISTS ticket;
+DROP TABLE IF EXISTS customer;
+DROP TABLE IF EXISTS time_slot;
+PRAGMA foreign_keys=ON;
+
+CREATE TABLE theaters (
+  theater_name TEXT,
+  capacity INT,
+  PRIMARY KEY (theater_name)
+);
+CREATE TABLE movies (
+  names TEXT,
+  year INT,
+  movie_ID TEXT,
+  run_time INT,
+  PRIMARY KEY (movie_ID)
+);
+
+CREATE TABLE ticket (
+  screening_ID INT,
+  ticket_ID INT DEFAULT (lower(hex(randomblob(16)))),
+  username TEXT,
+  PRIMARY KEY (ticket_ID),
+  FOREIGN KEY (screening_ID) REFERENCES time_slot(screening_ID),
+  FOREIGN KEY (username) REFERENCES customer(username)
+);
+
+CREATE TABLE users (
+  username TEXT,
+  fullname TEXT,
+  pwd TEXT,
+  PRIMARY KEY (username)
+);
+
+CREATE TABLE time_slot (
+  movie_ID TEXT,
+  theater_name TEXT,
+  start_time DATETIME,
+  screening_ID INT,
+  PRIMARY KEY (screening_ID),
+  FOREIGN KEY (movie_ID) REFERENCES movies(movie_ID),
+  FOREIGN KEY (theater_name) REFERENCES theaters(theater_name)
+);
